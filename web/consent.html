@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authorize - OAuth Server</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="consent.css">
+</head>
+<body>
+    <div id="consent-app">
+        <div class="mesh-background"></div>
+        <div class="login-container" style="max-width: 480px;">
+            <div class="login-card">
+
+                <!-- Loading State -->
+                <div v-if="loading" class="consent-loading">
+                    <div class="spinner" style="display:block; margin: 0 auto;"></div>
+                    <p style="text-align:center; margin-top: 1rem; color: var(--text-secondary);">Loading...</p>
+                </div>
+
+                <!-- Consent Form -->
+                <div v-else>
+                    <div class="consent-header">
+                        <div class="app-icon">{{ clientName.charAt(0).toUpperCase() }}</div>
+                        <h2>Authorize Application</h2>
+                        <p><strong>{{ clientName }}</strong> is requesting access to your account.</p>
+                    </div>
+
+                    <div class="scope-list">
+                        <h3>This application will be able to:</h3>
+                        <div v-for="scope in scopes" :key="scope.id" class="scope-item">
+                            <div class="scope-icon">{{ scope.icon }}</div>
+                            <div class="scope-details">
+                                <span class="scope-name">{{ scope.label }}</span>
+                                <span class="scope-desc">{{ scope.description }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="errorMessage" class="error-message" style="display: block;">{{ errorMessage }}</div>
+
+                    <div class="consent-actions">
+                        <button class="btn-allow" @click="handleAllow" :disabled="isSubmitting">
+                            <span v-if="!isSubmitting">Allow Access</span>
+                            <div v-else class="spinner" style="display:block;"></div>
+                        </button>
+                        <button class="btn-deny" @click="handleDeny" :disabled="isSubmitting">
+                            Deny
+                        </button>
+                    </div>
+
+                    <div class="consent-footer">
+                        <p>By clicking Allow, you authorize this app to access your info as described above.</p>
+                        <p>Redirecting to <span class="redirect-uri">{{ redirectUri }}</span></p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="consent.js"></script>
+</body>
+</html>

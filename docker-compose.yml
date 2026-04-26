@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: oauth-postgres
+    environment:
+      POSTGRES_USER: oauth_user
+      POSTGRES_PASSWORD: oauth_password
+      POSTGRES_DB: oauth_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - oauth-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oauth_user -d oauth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  oauth-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oauth-server
+    environment:
+      DATABASE_URL: postgres://oauth_user:oauth_password@postgres:5432/oauth_db?sslmode=disable
+      PORT: "8080"
+      JWT_SECRET: "change-me-in-production"
+    ports:
+      - "8080:8080"
+    networks:
+      - oauth-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:latest
+    container_name: oauth-adminer
+    ports:
+      - "8081:8080"
+    networks:
+      - oauth-network
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+
+networks:
+  oauth-network:
+    driver: bridge

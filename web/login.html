@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - OAuth Server</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div class="mesh-background"></div>
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <h2>Welcome Back</h2>
+                    <p>Sign in to continue to the application.</p>
+                </div>
+                
+                <form @submit.prevent="handleLogin" :class="{'shake-animation': shakeError}">
+                    <div class="input-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" v-model="username" placeholder="Enter your username" required autocomplete="username">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" v-model="password" placeholder="Enter your password" required autocomplete="current-password">
+                    </div>
+                    
+                    <div v-if="errorMessage" class="error-message" style="display: block;">{{ errorMessage }}</div>
+                    <div v-if="successMessage" class="success-message" style="display: block;">{{ successMessage }}</div>
+                    
+                    <button type="submit" :disabled="isLoading" :class="{ 'btn-loading': isLoading }">
+                        <span>Sign In</span>
+                        <div class="spinner"></div>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
