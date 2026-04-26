@@ -59,6 +59,7 @@ func (h *TokenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			RedirectURI:  r.PostFormValue("redirect_uri"),
+			Scope:        r.PostFormValue("scope"),
 		}
 		result, err = h.tokenHandler.Handle(r.Context(), cmd)
 	} else if grantType == "refresh_token" {

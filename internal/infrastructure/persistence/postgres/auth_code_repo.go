@@ -21,9 +21,9 @@ func NewAuthorizationCodeRepository(db *sql.DB) *AuthorizationCodeRepository {
 func (r *AuthorizationCodeRepository) Create(ctx context.Context, authCode *domain.AuthorizationCode) error {
 	_, err := r.db.ExecContext(
 		ctx,
-		`INSERT INTO authorization_codes (code, user_id, client_id, code_challenge, code_challenge_method, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		authCode.Code, authCode.UserID, authCode.ClientID, authCode.CodeChallenge, authCode.CodeChallengeMethod, authCode.ExpiresAt,
+		`INSERT INTO authorization_codes (code, user_id, client_id, code_challenge, code_challenge_method, scope, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		authCode.Code, authCode.UserID, authCode.ClientID, authCode.CodeChallenge, authCode.CodeChallengeMethod, authCode.Scope, authCode.ExpiresAt,
 	)
 	return err
 }
@@ -33,10 +33,10 @@ func (r *AuthorizationCodeRepository) FindByCode(ctx context.Context, code strin
 	authCode := &domain.AuthorizationCode{}
 	err := r.db.QueryRowContext(
 		ctx,
-		`SELECT code, user_id, client_id, code_challenge, code_challenge_method, expires_at
+		`SELECT code, user_id, client_id, code_challenge, code_challenge_method, scope, expires_at
 		 FROM authorization_codes WHERE code = $1 AND expires_at > NOW()`,
 		code,
-	).Scan(&authCode.Code, &authCode.UserID, &authCode.ClientID, &authCode.CodeChallenge, &authCode.CodeChallengeMethod, &authCode.ExpiresAt)
+	).Scan(&authCode.Code, &authCode.UserID, &authCode.ClientID, &authCode.CodeChallenge, &authCode.CodeChallengeMethod, &authCode.Scope, &authCode.ExpiresAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil

@@ -55,6 +55,25 @@ func (r *ClientRepository) FindByID(ctx context.Context, id string) (*domain.Cli
 	return client, nil
 }
 
+// FindAll retrieves all clients
+func (r *ClientRepository) FindAll(ctx context.Context) ([]*domain.Client, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT id, client_id, client_secret, redirect_uri FROM clients")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var clients []*domain.Client
+	for rows.Next() {
+		c := &domain.Client{}
+		if err := rows.Scan(&c.ID, &c.ClientID, &c.ClientSecret, &c.RedirectURI); err != nil {
+			return nil, err
+		}
+		clients = append(clients, c)
+	}
+	return clients, rows.Err()
+}
+
 // Save creates or updates a client
 func (r *ClientRepository) Save(ctx context.Context, client *domain.Client) error {
 	_, err := r.db.ExecContext(

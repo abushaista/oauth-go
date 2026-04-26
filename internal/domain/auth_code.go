@@ -11,6 +11,7 @@ type AuthorizationCode struct {
 	ClientID            string
 	CodeChallenge       string
 	CodeChallengeMethod string
+	Scope               string
 	ExpiresAt           time.Time
 }
 

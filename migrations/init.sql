@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS authorization_codes (
     client_id VARCHAR(255) NOT NULL REFERENCES clients(client_id) ON DELETE CASCADE,
     code_challenge VARCHAR(255),
     code_challenge_method VARCHAR(10),
+    scope VARCHAR(500),
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

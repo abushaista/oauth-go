@@ -30,6 +30,7 @@ type TokenCommand struct {
 	ClientID     string
 	ClientSecret string
 	RedirectURI  string
+	Scope        string
 }
 
 // RefreshCommand refreshes an access token using a refresh token

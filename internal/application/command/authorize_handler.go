@@ -101,6 +101,7 @@ func (h *AuthorizeHandler) Handle(ctx context.Context, cmd Command) (interface{}
 		ClientID:            authCmd.ClientID,
 		CodeChallenge:       authCmd.CodeChallenge,
 		CodeChallengeMethod: authCmd.CodeChallengeMethod,
+		Scope:               authCmd.Scope,
 		ExpiresAt:           getExpirationTime(),
 	}
 

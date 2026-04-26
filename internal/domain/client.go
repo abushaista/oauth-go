@@ -17,6 +17,9 @@ type ClientRepository interface {
 	// FindByID retrieves a client by ID
 	FindByID(ctx context.Context, id string) (*Client, error)
 
+	// FindAll retrieves all clients
+	FindAll(ctx context.Context) ([]*Client, error)
+
 	// Save creates or updates a client
 	Save(ctx context.Context, client *Client) error
 }

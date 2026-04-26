@@ -52,19 +52,26 @@ func main() {
 	consentRepo := postgres.NewConsentRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
 
-	// Initialize command handlers
-	authorizeHandler := command.NewAuthorizeHandler(authCodeRepo, clientRepo, consentRepo, auditRepo)
-	tokenHandler := command.NewTokenHandler(authCodeRepo, tokenRepo, refreshTokenRepo, clientRepo, auditRepo)
-	refreshHandler := command.NewRefreshHandler(refreshTokenRepo, tokenRepo, clientRepo, auditRepo)
-	loginHandler := command.NewLoginHandler(userRepo, auditRepo)
-	consentCommandHandler := command.NewConsentHandler(consentRepo)
-
-	// Initialize query handlers
-	auditQueryHandler := query.NewAuditQueryHandler(auditRepo)
-
 	// Initialize infrastructure services
 	jwksProvider := security.NewJWKSProvider()
 	sessionManager := handlers.NewSessionManager()
+	jwtSigner := security.NewJWTSigner(jwksProvider)
+
+	// Initialize command handlers
+	authorizeHandler := command.NewAuthorizeHandler(authCodeRepo, clientRepo, consentRepo, auditRepo)
+	tokenHandler := command.NewTokenHandler(authCodeRepo, tokenRepo, refreshTokenRepo, clientRepo, auditRepo, jwtSigner)
+	refreshHandler := command.NewRefreshHandler(refreshTokenRepo, tokenRepo, clientRepo, auditRepo)
+	loginHandler := command.NewLoginHandler(userRepo, auditRepo)
+	consentCommandHandler := command.NewConsentHandler(consentRepo)
+	revokeHandler := command.NewRevokeHandler(tokenRepo, refreshTokenRepo, clientRepo, auditRepo)
+	registrationHandler := command.NewRegisterClientHandler(clientRepo, auditRepo)
+
+	// Initialize query handlers
+	auditQueryHandler := query.NewAuditQueryHandler(auditRepo)
+	userinfoQueryHandler := query.NewUserinfoHandler(userRepo)
+	clientQueryHandler := query.NewClientQueryHandler(clientRepo)
+
+
 
 	// Initialize HTTP handlers
 	authHTTPHandler := handlers.NewAuthorizeHandler(authorizeHandler, sessionManager)
@@ -73,7 +80,14 @@ func main() {
 	tokenHTTPHandler := handlers.NewTokenHandler(tokenHandler, refreshHandler)
 	jwksHTTPHandler := handlers.NewJWKSHandler(jwksProvider)
 	auditHTTPHandler := handlers.NewAuditHandler(auditQueryHandler)
+	oidcHTTPHandler := handlers.NewOIDCHandler()
+	revokeHTTPHandler := handlers.NewRevokeHandler(revokeHandler)
+	registrationHTTPHandler := handlers.NewRegistrationHandler(registrationHandler)
+	userinfoHTTPHandler := handlers.NewUserinfoHandler(userinfoQueryHandler)
+	adminHTTPHandler := handlers.NewAdminHandler(clientQueryHandler, auditQueryHandler)
+
 	auditMiddleware := handlers.NewAuditMiddleware(auditRepo)
+	apiAuthMiddleware := handlers.NewAuthMiddleware(tokenRepo)
 
 	// Initialize global middlewares
 	rateLimiter := handlers.NewRateLimiter(60, 1*time.Minute) // 60 req/min per IP
@@ -86,14 +100,19 @@ func main() {
 	// OAuth endpoints (Wrapped with Middleware)
 	mux.Handle("/oauth/authorize", auditMiddleware.Wrap(authHTTPHandler))
 	mux.Handle("/oauth/token", auditMiddleware.Wrap(tokenHTTPHandler))
+	mux.Handle("/oauth/revoke", auditMiddleware.Wrap(revokeHTTPHandler))
 	mux.Handle("/.well-known/jwks.json", jwksHTTPHandler)
+	mux.Handle("/.well-known/openid-configuration", oidcHTTPHandler)
 
 	// User endpoints
 	mux.Handle("/login", auditMiddleware.Wrap(loginHTTPHandler))
 	mux.Handle("/consent", auditMiddleware.Wrap(consentHTTPHandler))
 	
 	// API Endpoints
-	mux.Handle("/audits", auditHTTPHandler)
+	mux.Handle("/audits", apiAuthMiddleware.Wrap(auditHTTPHandler))
+	mux.Handle("/userinfo", apiAuthMiddleware.Wrap(userinfoHTTPHandler))
+	mux.Handle("/register", registrationHTTPHandler)
+	mux.Handle("/admin/api", apiAuthMiddleware.Wrap(adminHTTPHandler)) // Protected admin API
 
 	// UI endpoints
 	staticHandler := handlers.NewStaticHandler("web")
