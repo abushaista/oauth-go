@@ -45,9 +45,36 @@ func (h *LoginHandler) Handle(ctx context.Context, cmd Command) (interface{}, er
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
+	// Check if account is locked
+	if user.IsLocked() {
+		return nil, fmt.Errorf("account is temporarily locked, please try again later")
+	}
+
 	// Verify password using bcrypt
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginCmd.Password)); err != nil {
+		// Increment failed attempts
+		user.FailedLoginAttempts++
+		
+		// Lock account if threshold (5) reached
+		if user.FailedLoginAttempts >= 5 {
+			lockDuration := 15 * time.Minute
+			until := time.Now().Add(lockDuration)
+			user.LockedUntil = &until
+			
+			// Save user state
+			_ = h.userRepo.Save(ctx, user)
+			return nil, fmt.Errorf("account locked due to too many failed attempts, please try again in 15 minutes")
+		}
+		
+		// Save user state (incremented attempts)
+		_ = h.userRepo.Save(ctx, user)
 		return nil, fmt.Errorf("invalid credentials")
+	}
+
+	// Successful login: reset attempts
+	if user.FailedLoginAttempts > 0 || user.LockedUntil != nil {
+		user.ResetLoginAttempts()
+		_ = h.userRepo.Save(ctx, user)
 	}
 
 	// Make Audit log entry

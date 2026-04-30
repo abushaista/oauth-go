@@ -5,6 +5,9 @@ CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'user',
+    failed_login_attempts INT DEFAULT 0,
+    locked_until TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -88,8 +91,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_client_id ON audit_logs(client_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 
 -- Seed a test user (password is bcrypt hash of 'password123')
-INSERT INTO users (id, username, password)
-VALUES ('test-user-001', 'admin', '$2a$14$N4s5OqKLPkVOAqFXw5mBNeP7Ql6YhKx3m0kxMqjU3HZGn3XPq2dXe')
+INSERT INTO users (id, username, password, role)
+VALUES ('test-user-001', 'admin', '$2a$14$N4s5OqKLPkVOAqFXw5mBNeP7Ql6YhKx3m0kxMqjU3HZGn3XPq2dXe', 'admin')
 ON CONFLICT (username) DO NOTHING;
 
 -- Seed a test client

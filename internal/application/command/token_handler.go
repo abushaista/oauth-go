@@ -20,6 +20,7 @@ type TokenHandler struct {
 	refreshRepo  domain.RefreshTokenRepository
 	clientRepo   domain.ClientRepository
 	auditRepo    domain.AuditRepository
+	userRepo     domain.UserRepository
 	jwtSigner    IDTokenSigner
 }
 
@@ -30,6 +31,7 @@ func NewTokenHandler(
 	refreshRepo domain.RefreshTokenRepository,
 	clientRepo domain.ClientRepository,
 	auditRepo domain.AuditRepository,
+	userRepo domain.UserRepository,
 	jwtSigner IDTokenSigner,
 ) *TokenHandler {
 	return &TokenHandler{
@@ -38,6 +40,7 @@ func NewTokenHandler(
 		refreshRepo:  refreshRepo,
 		clientRepo:   clientRepo,
 		auditRepo:    auditRepo,
+		userRepo:     userRepo,
 		jwtSigner:    jwtSigner,
 	}
 }
@@ -113,12 +116,20 @@ func (h *TokenHandler) handleAuthorizationCodeGrant(ctx context.Context, cmd *To
 	// OIDC: Generate ID Token if openid scope is present
 	idToken := ""
 	if strings.Contains(scope, "openid") {
+		// Fetch user to get role
+		user, _ := h.userRepo.FindByID(ctx, authCode.UserID)
+		role := "user"
+		if user != nil {
+			role = user.Role
+		}
+
 		claims := map[string]interface{}{
 			"sub": authCode.UserID,
 			"aud": authCode.ClientID,
 			"iss": "http://localhost:8080", // Should be config-driven
 			"exp": time.Now().Add(1 * time.Hour).Unix(),
 			"iat": time.Now().Unix(),
+			"role": role,
 		}
 		idToken, _ = h.jwtSigner.Sign(claims)
 	}

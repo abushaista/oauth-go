@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/abushaista/oauth-go/internal/application/command"
 	"github.com/abushaista/oauth-go/internal/application/query"
+	"github.com/abushaista/oauth-go/internal/infrastructure/persistence"
 	"github.com/abushaista/oauth-go/internal/infrastructure/persistence/postgres"
 	"github.com/abushaista/oauth-go/internal/infrastructure/security"
 	handlers "github.com/abushaista/oauth-go/internal/interfaces/http"
@@ -41,7 +43,12 @@ func main() {
 		log.Fatalf("Failed to ping database: %v", err)
 	}
 
-	log.Println("Connected to database")
+	// Optimize DB connection pool
+	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(50)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	log.Println("Connected to database (Pool: 100/50)")
 
 	// Initialize repositories
 	userRepo := postgres.NewUserRepository(db)
@@ -50,7 +57,11 @@ func main() {
 	tokenRepo := postgres.NewTokenRepository(db)
 	refreshTokenRepo := postgres.NewRefreshTokenRepository(db)
 	consentRepo := postgres.NewConsentRepository(db)
-	auditRepo := postgres.NewAuditRepository(db)
+	
+	// Use AsyncAuditRepository to offload DB writes
+	baseAuditRepo := postgres.NewAuditRepository(db)
+	auditRepo := persistence.NewAsyncAuditRepository(baseAuditRepo, 1000)
+	auditRepo.StartWorker(context.Background())
 
 	// Initialize infrastructure services
 	jwksProvider := security.NewJWKSProvider()
@@ -59,7 +70,7 @@ func main() {
 
 	// Initialize command handlers
 	authorizeHandler := command.NewAuthorizeHandler(authCodeRepo, clientRepo, consentRepo, auditRepo)
-	tokenHandler := command.NewTokenHandler(authCodeRepo, tokenRepo, refreshTokenRepo, clientRepo, auditRepo, jwtSigner)
+	tokenHandler := command.NewTokenHandler(authCodeRepo, tokenRepo, refreshTokenRepo, clientRepo, auditRepo, userRepo, jwtSigner)
 	refreshHandler := command.NewRefreshHandler(refreshTokenRepo, tokenRepo, clientRepo, auditRepo)
 	loginHandler := command.NewLoginHandler(userRepo, auditRepo)
 	consentCommandHandler := command.NewConsentHandler(consentRepo)
@@ -90,9 +101,12 @@ func main() {
 	apiAuthMiddleware := handlers.NewAuthMiddleware(tokenRepo)
 
 	// Initialize global middlewares
-	rateLimiter := handlers.NewRateLimiter(60, 1*time.Minute) // 60 req/min per IP
+	// Relaxed rate limit for high TPS (e.g., 10k requests per minute per IP)
+	rateLimiter := handlers.NewRateLimiter(10000, 1*time.Minute) 
 	corsMiddleware := handlers.NewCORSMiddleware()
 	requestLogger := handlers.NewRequestLogger()
+
+	roleMiddleware := handlers.NewRoleMiddleware(userRepo)
 
 	// Register routes
 	mux := http.NewServeMux()
@@ -109,10 +123,10 @@ func main() {
 	mux.Handle("/consent", auditMiddleware.Wrap(consentHTTPHandler))
 	
 	// API Endpoints
-	mux.Handle("/audits", apiAuthMiddleware.Wrap(auditHTTPHandler))
+	mux.Handle("/audits", apiAuthMiddleware.Wrap(roleMiddleware.RequireRole("admin")(auditHTTPHandler)))
 	mux.Handle("/userinfo", apiAuthMiddleware.Wrap(userinfoHTTPHandler))
 	mux.Handle("/register", registrationHTTPHandler)
-	mux.Handle("/admin/api", apiAuthMiddleware.Wrap(adminHTTPHandler)) // Protected admin API
+	mux.Handle("/admin/api", apiAuthMiddleware.Wrap(roleMiddleware.RequireRole("admin")(adminHTTPHandler))) // Protected admin API
 
 	// UI endpoints
 	staticHandler := handlers.NewStaticHandler("web")
