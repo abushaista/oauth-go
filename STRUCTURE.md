@@ -2,7 +2,7 @@
 
 ## ✅ Project Fully Implemented
 
-This is a **production-ready OAuth 2.0 Authorization Server** built with Go following **Clean Architecture** principles.
+This is a **production-ready OAuth 2.1 & OpenID Connect (OIDC) Server** built with Go following **Clean Architecture** and **CQRS** principles.
 
 ---
 
@@ -12,64 +12,105 @@ This is a **production-ready OAuth 2.0 Authorization Server** built with Go foll
 oauth-go/
 │
 ├── cmd/api/
-│   └── main.go                          # Application entry point
+│   └── main.go                          # Entry point and Dependency Injection bootstrap
 │
 ├── internal/
-│   ├── domain/                          # Core business logic (Domain Layer)
-│   │   ├── user.go                      # User model + UserRepository interface
-│   │   ├── client.go                    # Client model + ClientRepository interface
-│   │   ├── auth_code.go                 # AuthorizationCode model + interface
-│   │   ├── token.go                     # AccessToken & RefreshToken models
-│   │   ├── token_repository.go          # Token repository interfaces
-│   │   ├── consent.go                   # Consent model + interface
-│   │   ├── audit.go                     # Audit model + interface
-│   │   ├── pkce.go                      # PKCE validation logic
-│   │   └── crypto.go                    # Crypto constants
+│   ├── domain/                          # Core Business Logic (Domain Layer)
+│   │   ├── audit.go                     # Audit record structure
+│   │   ├── audit_repository.go          # Audit persistence interface
+│   │   ├── auth_code.go                 # AuthorizationCode model & repository interface
+│   │   ├── client.go                    # Client application model & repository interface
+│   │   ├── consent.go                   # Consent record model & repository interface
+│   │   ├── crypto.go                    # Helper crypto constraints
+│   │   ├── pkce.go                      # PKCE S256/Plain verification logic
+│   │   ├── pkce_test.go                 # PKCE validator unit tests
+│   │   ├── token.go                     # Access/Refresh token models & repositories interfaces
+│   │   └── user.go                      # User model, lock logic, and repository interface
 │   │
 │   ├── application/                     # Application Business Logic (Application Layer)
-│   │   ├── command/
-│   │   │   ├── interfaces.go            # Command & command handler interfaces
-│   │   │   ├── authorize_handler.go     # Authorization code flow handler
-│   │   │   ├── token_handler.go         # Token exchange handler
-│   │   │   ├── refresh_handler.go       # Refresh token handler
-│   │   │   └── login_handler.go         # User login handler
-│   │   └── query/
-│   │       ├── interfaces.go            # Query & query handler interfaces
-│   │       └── jwks_query.go            # JWKS retrieval handler
+│   │   ├── command/                     # Write CQRS Handlers (Mutations)
+│   │   │   ├── interfaces.go            # Command types and command handler interfaces
+│   │   │   ├── authorize_handler.go     # Creates short-lived authorization codes
+│   │   │   ├── consent_handler.go       # Records user scope permissions for clients
+│   │   │   ├── login_handler.go         # Authenticates users and handles lockout state
+│   │   │   ├── refresh_handler.go       # Rotates refresh tokens and issues access tokens
+│   │   │   ├── register_client_handler.go # Handles dynamic client registration (RFC 7591)
+│   │   │   ├── revoke_handler.go        # Revokes access/refresh tokens (RFC 7009)
+│   │   │   ├── token_handler.go         # Standard token exchanges (code, client_credentials)
+│   │   │   └── utils.go                 # Safe secure random token generator
+│   │   └── query/                       # Read CQRS Handlers (Data Retrieval)
+│   │       ├── interfaces.go            # Query definitions and interfaces
+│   │       ├── jwks_query.go            # Fetches public RSA keys
+│   │       ├── userinfo_handler.go      # Prepares user profile payload for OIDC Userinfo
+│   │       ├── client_handler.go        # Resolves client records
+│   │       └── audit_query.go           # Fetches security events audit logs
 │   │
-│   ├── infrastructure/                  # External Services (Infrastructure Layer)
-│   │   ├── persistence/postgres/
-│   │   │   ├── user_repo.go             # PostgreSQL user repository
-│   │   │   ├── client_repo.go           # PostgreSQL client repository
-│   │   │   ├── auth_code_repo.go        # PostgreSQL auth code repository
-│   │   │   ├── token_repo.go            # PostgreSQL access token repository
-│   │   │   ├── refresh_token_repo.go    # PostgreSQL refresh token repository
-│   │   │   ├── consent_repo.go          # PostgreSQL consent repository
-│   │   │   └── audit_repo.go            # PostgreSQL audit repository
-│   │   └── security/
-│   │       ├── password.go              # Password hashing (bcrypt)
-│   │       ├── jwt_rs256.go             # JWT signing with RS256
-│   │       ├── jwks.go                  # JSON Web Key Set provider
-│   │       └── refresh_hash.go          # PKCE and token utilities
+│   ├── infrastructure/                  # Technical Implementations (Infrastructure Layer)
+│   │   ├── persistence/                 # Persistence handlers
+│   │   │   ├── audit_async.go           # Asynchronous worker to save audit logs safely
+│   │   │   └── postgres/                # PostgreSQL repository implementations
+│   │   │       ├── audit_repo.go
+│   │   │       ├── auth_code_repo.go
+│   │   │       ├── client_repo.go
+│   │   │       ├── consent_repo.go
+│   │   │       ├── refresh_token_repo.go
+│   │   │       ├── token_repo.go
+│   │   │       └── user_repo.go
+│   │   └── security/                    # Security components
+│   │       ├── jwks.go                  # Handles JSON Web Key Set keys and operations
+│   │       ├── jwks_test.go
+│   │       ├── jwt_rs256.go             # Creates and verifies RS256 JWT tokens
+│   │       ├── jwt_rs256_test.go
+│   │       ├── password.go              # Generates and validates bcrypt hashes
+│   │       ├── password_test.go
+│   │       └── refresh_hash.go          # Token utilities
 │   │
-│   └── interfaces/http/                 # HTTP Interface Layer
-│       ├── handler_authorize.go         # GET /oauth/authorize
-│       ├── handler_login.go             # POST /login
-│       ├── handler_consent.go           # GET/POST /consent
-│       ├── handler_token.go             # POST /oauth/token
-│       ├── handler_jwks.go              # GET /.well-known/jwks.json
-│       └── handler_static.go            # Static file serving
+│   └── interfaces/http/                 # HTTP API & Web Interface Layer
+│       ├── handler_admin.go             # Client management API (admin protected)
+│       ├── handler_audit.go             # Audits query endpoint (admin protected)
+│       ├── handler_authorize.go         # GET /oauth/authorize endpoint (loads login/consent UI)
+│       ├── handler_login.go             # POST /login (authenticates session cookie)
+│       ├── handler_consent.go           # GET/POST /consent (renders UI / records scopes)
+│       ├── handler_token.go             # POST /oauth/token endpoint
+│       ├── handler_jwks.go              # GET /.well-known/jwks.json endpoint
+│       ├── handler_oidc.go              # GET /.well-known/openid-configuration endpoint
+│       ├── handler_registration.go      # POST /register (dynamic client registration)
+│       ├── handler_revoke.go            # POST /oauth/revoke (token revocation)
+│       ├── handler_static.go            # Serves local frontend files
+│       ├── handler_userinfo.go          # GET /userinfo endpoint
+│       ├── middleware_audit.go          # Audit log writer interceptor
+│       ├── middleware_auth.go           # Bearer token validation middleware
+│       ├── middleware_cors.go           # Cross-Origin resource sharing handler
+│       ├── middleware_logging.go        # Structured HTTP request logger
+│       ├── middleware_ratelimit.go      # IP-based sliding window rate limiter
+│       ├── middleware_role.go           # User role-enforcement middleware
+│       └── session.go                   # Signed HMAC-SHA256 cookie session manager
 │
 ├── migrations/
-│   └── init.sql                         # Database schema with all tables
+│   └── init.sql                         # Database schema and seed data
 │
-├── go.mod                               # Go module dependencies
-├── .gitignore                           # Git ignore rules
-├── .env.example                         # Environment variables template
-├── docker-compose.yml                   # PostgreSQL + Adminer setup
-├── Makefile                             # Development commands
-├── README.md                            # Full documentation
-└── QUICKSTART.md                        # Quick start guide
+├── tests/
+│   └── integration_test.go              # Integration tests for core endpoints
+│
+├── web/                                 # User login and consent pages UI
+│   ├── login.html
+│   ├── consent.html
+│   ├── style.css
+│   ├── consent.css
+│   ├── app.js
+│   └── consent.js
+│
+├── go.mod                               # Go modules
+├── go.sum                               # Checksum files
+├── .gitignore                           # Git ignore configurations
+├── .env.example                         # Environment configuration template
+├── docker-compose.yml                   # Postgres, Server, and Adminer docker configurations
+├── Makefile                             # Build & run tooling script
+├── README.md                            # Main project readme
+├── INDEX.md                             # Complete project documentation index
+├── ARCHITECTURE.md                      # Architecture diagram and detail overview
+├── COMPLETION.md                        # Completion log summary
+└── QUICKSTART.md                        # Setup and test commands
 ```
 
 ---
@@ -78,175 +119,78 @@ oauth-go/
 
 ### Domain Layer (`internal/domain/`)
 - **Entities**: User, Client, AuthorizationCode, AccessToken, RefreshToken, Consent, Audit
-- **Repository Interfaces**: Abstractions for data access
-- **Business Rules**: PKCE validation, crypto constants
+- **Repository Interfaces**: Abstract representations for databases (Postgres)
+- **Business Rules**: PKCE verifier, user password validation, lockout rules, JWT creation.
 
 ### Application Layer (`internal/application/`)
-- **CQRS Pattern**: Commands for mutations, Queries for reads
-- **Command Handlers**: AuthorizeHandler, TokenHandler, RefreshHandler, LoginHandler
-- **Query Handlers**: JWKSHandler
-- **No database logic** - uses repository interfaces
+- **CQRS Pattern**: Decoupled write actions (Commands) from read actions (Queries)
+- **Command Handlers**: AuthorizeHandler, LoginHandler, ConsentHandler, RefreshHandler, RevokeHandler, RegisterClientHandler, TokenHandler
+- **Query Handlers**: JWKSQuery, UserinfoHandler, ClientQueryHandler, AuditQueryHandler
+- **No Direct tech integrations**: Relies strictly on Domain repository abstractions.
 
 ### Infrastructure Layer (`internal/infrastructure/`)
-- **PostgreSQL Repositories**: Concrete implementations of domain interfaces
-- **Security Services**: Password hashing, JWT signing, PKCE validation
-- **Database Queries**: Prepared statements with context support
+- **PostgreSQL Repositories**: Implementation of domain repositories via prepared SQL queries
+- **Security Handlers**: BCrypt password hashing (Cost 14), RS256 token signer (custom JSON encoding), JWKS keys generator
+- **Asynchronous Writer**: Asynchronous audit logging helper that accepts logs and writes them inside a concurrent background queue.
 
 ### Interface Layer (`internal/interfaces/http/`)
-- **HTTP Handlers**: Convert HTTP requests to commands/queries
-- **Content Type Headers**: Proper JSON/form handling
-- **Route Registration**: Main entry point setup
+- **Controllers**: Adapts HTTP requests to application commands and queries
+- **Middlewares**: Handles request rate limiting, CORS configuration, bearer auth extraction, logging and request auditing.
+- **Sessions**: Uses cookie storage signed with an HMAC-SHA256 signature to manage state across the login/consent redirection.
 
 ---
 
 ## 🌐 API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/oauth/authorize` | GET/POST | Authorization code request |
-| `/oauth/token` | POST | Token exchange & refresh |
-| `/.well-known/jwks.json` | GET | Public key set |
-| `/login` | POST | User authentication |
-| `/consent` | GET/POST | User consent management |
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/health` | GET | Public | Server health checks |
+| `/oauth/authorize` | GET/POST | Session | Authorization endpoint (loads Login/Consent UI) |
+| `/oauth/token` | POST | Client Secret | Token exchange (auth code, refresh, client credentials) |
+| `/oauth/revoke` | POST | Client Secret | Revokes access and refresh tokens (RFC 7009) |
+| `/.well-known/jwks.json` | GET | Public | Standard JSON Web Key Set discovery |
+| `/.well-known/openid-configuration` | GET | Public | OpenID Connect metadata discovery |
+| `/login` | POST | Public | Authenticates user credentials & sets session cookie |
+| `/consent` | GET/POST | Session | Renders scope options / registers consent |
+| `/userinfo` | GET | Bearer Token | Returns OIDC profile details (sub, role, username) |
+| `/register` | POST | Public | Standard dynamic client registration (RFC 7591) |
+| `/audits` | GET | Admin Bearer | Fetches system logs matching user or client query |
+| `/admin/api` | GET | Admin Bearer | Client administration API |
 
 ---
 
 ## 🗄️ Database Schema
 
-All tables include proper indexes and foreign key constraints:
-
-- **users**: User credentials
-- **clients**: OAuth client applications
-- **authorization_codes**: Short-lived auth codes
-- **access_tokens**: Bearer tokens
-- **refresh_tokens**: Long-lived tokens with revocation
-- **consents**: User consent records
-- **audit_logs**: Security event tracking
-
----
-
-## 🚀 Quick Start
-
-### Using Docker (Recommended)
-```bash
-make dev
-```
-
-### Manual Setup
-```bash
-# Start PostgreSQL
-docker-compose up -d
-
-# Run migrations
-make migrate
-
-# Start server
-go run cmd/api/main.go
-```
+Schema configured with strict foreign keys and index trees:
+- **`users`**: user logins, role (`admin` or `user`), `failed_login_attempts`, and account lock `locked_until`
+- **`clients`**: registration entries, client IDs, client secrets, and redirect URIs
+- **`authorization_codes`**: short-lived codes with scopes and PKCE fields
+- **`access_tokens`**: bearer tokens mapping user and client
+- **`refresh_tokens`**: refresh tokens with tracking revoked state (`revoked` true/false)
+- **`consents`**: user-approved client applications and scopes
+- **`audit_logs`**: structured record of security and authorization events
 
 ---
 
 ## 📦 Dependencies
 
+Managed by Go modules:
 - `github.com/lib/pq`: PostgreSQL driver
-
-**Future Dependencies** (to be implemented):
-- `golang.org/x/crypto`: Password hashing (bcrypt)
-- `github.com/golang-jwt/jwt/v4`: JWT handling
+- `golang.org/x/crypto/bcrypt`: Cryptographic hashing for passwords
 
 ---
 
 ## ✨ Features Implemented
 
-✅ OAuth 2.0 Authorization Code Flow
-✅ PKCE support (plain & S256)
-✅ JWT token generation framework
-✅ Refresh token support
-✅ User consent management
-✅ Audit logging
-✅ PostgreSQL persistence
-✅ Clean Architecture
-✅ CQRS pattern
-✅ Docker development setup
-✅ Database migrations
-✅ Comprehensive documentation
-
----
-
-## 🔄 Architecture Patterns
-
-### Clean Architecture
-```
-External → Interface → Application → Domain ← Infrastructure
-```
-
-### CQRS (Command Query Responsibility Segregation)
-- **Commands**: AuthorizeCommand, TokenCommand, RefreshCommand, LoginCommand
-- **Queries**: JWKSQuery
-- Separate handlers for read/write operations
-
-### Repository Pattern
-- Abstract data access behind interfaces
-- Easy to mock for testing
-- Swappable implementations
-
----
-
-## 📚 Documentation
-
-- **README.md**: Full project documentation
-- **QUICKSTART.md**: Step-by-step setup guide
-- **Makefile**: Available commands
-- **Code Comments**: Inline documentation
-
----
-
-## 🛠️ Development Tools
-
-### Make Commands
-```bash
-make dev           # Start development environment
-make build         # Build binary
-make run           # Run server
-make test          # Run tests
-make fmt           # Format code
-make docker-up     # Start containers
-make docker-down   # Stop containers
-make migrate       # Run migrations
-```
-
-### Environment Configuration
-Copy `.env.example` to `.env` and customize:
-```bash
-DATABASE_URL=postgres://...
-PORT=8080
-```
-
----
-
-## 📝 Next Steps for Enhancement
-
-1. **Implement Password Hashing**: Use bcrypt in `password.go`
-2. **Implement JWT Signing**: Use RS256 in `jwt_rs256.go`
-3. **Add Unit Tests**: Test handlers and repositories
-4. **API Documentation**: Swagger/OpenAPI specs
-5. **React Frontend**: Login and consent screens
-6. **Rate Limiting**: Middleware for protection
-7. **OpenID Connect**: Add OIDC support
-8. **Token Revocation**: Endpoints for token management
-
----
-
-## 🔐 Security Features
-
-- PKCE support for public clients
-- Refresh token revocation
-- Authorization code expiration
-- Audit logging of all actions
-- Database connection pooling
-- SQL injection protection (prepared statements)
-- Session token security
+✅ OAuth 2.0 / 2.1 Authorization Code Flow with enforced PKCE  
+✅ Client Credentials Grant Flow  
+✅ OpenID Connect (OIDC) metadata discovery & `/userinfo` endpoint  
+✅ Custom JWT RS256 signing and dynamic JWKS key set  
+✅ Refresh Token Rotation (RTR) and revocation endpoints  
+✅ Safe BCrypt password hashing & account lockout protection (5 fails)  
+✅ Non-blocking asynchronous audit logging channel  
+✅ Global CORS, request logs, and IP-based rate limiting middlewares  
+✅ UI templates built in Vue.js (served locally via standard Go files)  
 
 ---
 
@@ -270,16 +214,6 @@ clients (1) ──→ (many) audit_logs
 
 ## ✅ Completion Status
 
-**Status**: 🟢 **FULLY IMPLEMENTED**
+**Status**: 🟢 **FULLY IMPLEMENTED & PRODUCTION-READY**
 
-All architectural layers are complete with:
-- ✅ Domain models and interfaces
-- ✅ Application handlers (CQRS pattern)
-- ✅ Infrastructure implementations (PostgreSQL)
-- ✅ HTTP interface layer
-- ✅ Database schema and migrations
-- ✅ Docker development environment
-- ✅ Comprehensive documentation
-- ✅ Build and deployment tools
-
-The OAuth server is ready for further customization and deployment!
+Every Clean Architecture and CQRS layer is complete and verified under standard Go 1.22+ and Docker environments.
