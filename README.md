@@ -110,7 +110,7 @@ oauth-go/
 
 ### Prerequisites
 
-- **Go 1.22+**
+- **Go 1.26.1**
 - **Docker & Docker Compose** (for easiest configuration)
 
 ### Running with Docker (Recommended)

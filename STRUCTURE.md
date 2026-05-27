@@ -216,4 +216,4 @@ clients (1) ──→ (many) audit_logs
 
 **Status**: 🟢 **FULLY IMPLEMENTED & PRODUCTION-READY**
 
-Every Clean Architecture and CQRS layer is complete and verified under standard Go 1.22+ and Docker environments.
+Every Clean Architecture and CQRS layer is complete and verified under standard Go 1.26.1 and Docker environments.

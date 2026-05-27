@@ -293,7 +293,7 @@ make dev               Start local Go server connected to Docker Postgres databa
 
 ## 🔑 Key Technologies
 
-- **Language**: Go 1.22+
+- **Language**: Go 1.26.1
 - **Libraries**: standard `net/http` package (no heavy framework overhead)
 - **Database**: PostgreSQL 15+
 - **Driver**: `github.com/lib/pq`
@@ -333,6 +333,6 @@ make dev               Start local Go server connected to Docker Postgres databa
 
 ---
 
-**Last Updated**: May 22, 2026  
+**Last Updated**: May 27, 2026  
 **Status**: ✅ Complete and Production-ready  
 **Version**: 2.0.0  

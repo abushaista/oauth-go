@@ -320,7 +320,7 @@ interfaces/http/
 
 ```
 Language & Version:
-  └─ Go 1.22+
+  └─ Go 1.26.1
   
 API Library:
   └─ net/http (standard library)
